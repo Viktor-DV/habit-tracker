@@ -1,0 +1,93 @@
+name: Build & Deploy → RuStore
+
+# Запускается при каждом пуше в main.
+on:
+  push:
+    branches: [main]
+
+  # Ручной запуск из вкладки Actions.
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.38.10"
+  PACKAGE_NAME: ru.habitify.tracker
+
+jobs:
+  build-and-deploy:
+    name: Build APK & Upload to RuStore
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Код ─────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java 17 (требуется Gradle + Flutter) ───────────────────────────
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # ── 3. Flutter ─────────────────────────────────────────────────────────
+      - name: Setup Flutter ${{ env.FLUTTER_VERSION }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # ── 4. Зависимости ────────────────────────────────────────────────────
+      - name: Flutter pub get
+        run: flutter pub get
+
+      # ── 5. Тесты ──────────────────────────────────────────────────────────
+      - name: Run unit tests
+        run: flutter test
+
+      # ── 6. Keystore из секрета (base64) ───────────────────────────────────
+      # Как добавить секрет: base64 android/habitify-release.jks | pbcopy
+      # Затем Settings → Secrets → KEYSTORE_BASE64
+      - name: Restore keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode \
+            > android/habitify-release.jks
+
+      # ── 7. key.properties из секретов ─────────────────────────────────────
+      - name: Create android/key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../habitify-release.jks
+          EOF
+
+      # ── 8. Сборка Release APK ─────────────────────────────────────────────
+      # versionCode = номер запуска CI (автоматически растёт).
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-number=${{ github.run_number }}
+
+      # ── 9. Деплой в RuStore ───────────────────────────────────────────────
+      - name: Install Python deps for deploy script
+        run: pip3 install cryptography requests --quiet
+
+      - name: Upload to RuStore
+        env:
+          RUSTORE_KEY_ID:      ${{ secrets.RUSTORE_KEY_ID }}
+          RUSTORE_PRIVATE_KEY: ${{ secrets.RUSTORE_PRIVATE_KEY }}
+          PACKAGE_NAME:        ${{ env.PACKAGE_NAME }}
+          WHATS_NEW:           ${{ github.event.head_commit.message }}
+          APK_PATH:            build/app/outputs/flutter-apk/app-release.apk
+          BUILD_NUMBER:        ${{ github.run_number }}
+        run: python3 .github/scripts/rustore_deploy.py
+
+      # ── 10. Артефакт (скачать APK из Actions) ────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-${{ github.run_number }}.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14

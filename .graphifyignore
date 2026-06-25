@@ -1,0 +1,12 @@
+build/
+.dart_tool/
+.idea/
+android/
+ios/
+linux/
+macos/
+web/
+windows/
+graphify-out/
+*.g.dart
+pubspec.lock
