@@ -76,45 +76,36 @@ def get_token(rustore_id: str, private_key_pem: str) -> str:
     """
     Obtain a JWE token valid for 900 s.
 
-    RuStore changed auth in 2024:
-      - New (current) API uses `keyId` — the ID shown in Console → Settings → API Keys.
-      - Old (deprecated) API used `companyId` — the numeric company ID.
-
-    We try `keyId` first. If RuStore returns NOT_FOUND we automatically
-    fall back to `companyId` so older credentials still work.
+    Uses the current RuStore API (post-2024): `keyId` field only.
+    The keyId is found in RuStore Console → Settings → API Keys.
     """
     tz = datetime.timezone(datetime.timedelta(hours=3))  # Moscow time (+03:00)
     timestamp = datetime.datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S.000+03:00")
     signature_b64 = _sign(rustore_id, timestamp, private_key_pem)
 
-    for id_field in ("keyId", "companyId"):
-        payload = {
-            id_field:    rustore_id,
-            "timestamp": timestamp,
-            "signature": signature_b64,
-        }
-        resp = requests.post(f"{API}/auth", json=payload, timeout=30)
-        try:
-            data = resp.json()
-        except Exception:
-            die(f"Auth: non-JSON response (HTTP {resp.status_code}): {resp.text[:400]}")
+    payload = {
+        "keyId":     rustore_id,
+        "timestamp": timestamp,
+        "signature": signature_b64,
+    }
 
-        code = data.get("code", "")
-        if code == "OK":
-            print(f"  ✓ Auth  (used {id_field})")
-            return data["body"]["jwe"]
+    resp = requests.post(f"{API}/auth", json=payload, timeout=30)
+    try:
+        data = resp.json()
+    except Exception:
+        die(f"Auth: non-JSON response (HTTP {resp.status_code}): {resp.text[:400]}")
 
-        # NOT_FOUND on keyId → retry with companyId
-        if id_field == "keyId" and "not found" in str(data).lower():
-            print(f"  ⚠ keyId not found, retrying with companyId…")
-            continue
+    code = data.get("code", "")
+    if code != "OK":
+        die(
+            f"Auth failed (code={code}): {data.get('message') or data}\n"
+            "  → Check secret RUSTORE_COMPANY_ID: it must be the KEY ID\n"
+            "    (not the numeric company ID) from:\n"
+            "    RuStore Console → Settings → API Keys → column 'ID ключа'"
+        )
 
-        # Any other error is fatal
-        die(f"Auth failed (code={code}): {data.get('message') or data}")
-
-    die("Auth failed with both keyId and companyId. "
-        "Check RUSTORE_COMPANY_ID secret: it must be the Key ID from "
-        "RuStore Console → Settings → API Keys.")
+    print("  ✓ Auth")
+    return data["body"]["jwe"]
 
 
 # ── step 2: create version draft ─────────────────────────────────────────────
