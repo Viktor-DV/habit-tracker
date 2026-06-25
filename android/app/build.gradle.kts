@@ -1,8 +1,18 @@
+import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Read signing config outside android{} so keyProps is in scope everywhere.
+val keyProps = Properties()
+val keyPropsFile = rootProject.file("key.properties")
+if (keyPropsFile.exists()) {
+    keyProps.load(keyPropsFile.inputStream())
 }
 
 android {
@@ -17,8 +27,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    // Kotlin 2.x: use compilerOptions DSL (kotlinOptions.jvmTarget is removed).
+    kotlin {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
     }
 
     defaultConfig {
@@ -30,18 +43,14 @@ android {
         versionName = flutter.versionName
     }
 
-    // Signing credentials are stored in android/key.properties (gitignored).
-    // Copy key.properties.example → key.properties and fill in your values.
-    val keyProps = java.util.Properties()
-    val keyPropsFile = rootProject.file("key.properties")
-    if (keyPropsFile.exists()) keyProps.load(keyPropsFile.inputStream())
-
+    // Signing credentials loaded from android/key.properties (gitignored).
+    // CI creates the file dynamically from GitHub Secrets.
     signingConfigs {
         create("release") {
-            storeFile     = keyProps["storeFile"]?.let { file(it as String) }
-            storePassword = keyProps["storePassword"] as String?
-            keyAlias      = keyProps["keyAlias"]      as String?
-            keyPassword   = keyProps["keyPassword"]   as String?
+            storeFile     = keyProps.getProperty("storeFile")?.let { file(it) }
+            storePassword = keyProps.getProperty("storePassword")
+            keyAlias      = keyProps.getProperty("keyAlias")
+            keyPassword   = keyProps.getProperty("keyPassword")
         }
     }
 
