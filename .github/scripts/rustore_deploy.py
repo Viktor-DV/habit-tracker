@@ -52,48 +52,69 @@ def check_response(resp: requests.Response, step: str) -> dict:
 
 # ── step 1: authenticate ─────────────────────────────────────────────────────
 
-def get_token(rustore_id: str, private_key_pem: str) -> str:
-    """
-    Obtain a JWE token valid for 900 s.
-
-    RuStore accepts both new `keyId` and deprecated `companyId` fields.
-    We send both so the request works regardless of which ID the user stored.
-    """
-    tz = datetime.timezone(datetime.timedelta(hours=3))  # Moscow time
-    timestamp = datetime.datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S.000+03:00")
-
-    # Build signature: SHA512withRSA of (id + timestamp)
-    message = (rustore_id + timestamp).encode("utf-8")
-
-    # Accept PEM with or without headers (RuStore Console exports both formats)
+def _sign(rustore_id: str, timestamp: str, private_key_pem: str) -> str:
+    """Return base64-encoded SHA512withRSA signature of (id + timestamp)."""
     pem = private_key_pem.strip()
     if not pem.startswith("-----"):
+        # RuStore Console sometimes exports raw base64 without PEM headers.
         raw = base64.b64decode(pem)
         pem = (
             "-----BEGIN PRIVATE KEY-----\n"
             + base64.b64encode(raw).decode()
             + "\n-----END PRIVATE KEY-----"
         )
-
     private_key = serialization.load_pem_private_key(pem.encode(), password=None)
-    sig = private_key.sign(message, asym_padding.PKCS1v15(), hashes.SHA512())
-    signature_b64 = base64.b64encode(sig).decode()
-
-    # Send both keyId and companyId — API ignores the one it doesn't use
-    payload = {
-        "keyId":     rustore_id,
-        "companyId": rustore_id,
-        "timestamp": timestamp,
-        "signature": signature_b64,
-    }
-
-    resp = requests.post(
-        f"{API}/auth",
-        json=payload,
-        timeout=30,
+    sig = private_key.sign(
+        (rustore_id + timestamp).encode("utf-8"),
+        asym_padding.PKCS1v15(),
+        hashes.SHA512(),
     )
-    data = check_response(resp, "Auth")
-    return data["body"]["jwe"]
+    return base64.b64encode(sig).decode()
+
+
+def get_token(rustore_id: str, private_key_pem: str) -> str:
+    """
+    Obtain a JWE token valid for 900 s.
+
+    RuStore changed auth in 2024:
+      - New (current) API uses `keyId` — the ID shown in Console → Settings → API Keys.
+      - Old (deprecated) API used `companyId` — the numeric company ID.
+
+    We try `keyId` first. If RuStore returns NOT_FOUND we automatically
+    fall back to `companyId` so older credentials still work.
+    """
+    tz = datetime.timezone(datetime.timedelta(hours=3))  # Moscow time (+03:00)
+    timestamp = datetime.datetime.now(tz).strftime("%Y-%m-%dT%H:%M:%S.000+03:00")
+    signature_b64 = _sign(rustore_id, timestamp, private_key_pem)
+
+    for id_field in ("keyId", "companyId"):
+        payload = {
+            id_field:    rustore_id,
+            "timestamp": timestamp,
+            "signature": signature_b64,
+        }
+        resp = requests.post(f"{API}/auth", json=payload, timeout=30)
+        try:
+            data = resp.json()
+        except Exception:
+            die(f"Auth: non-JSON response (HTTP {resp.status_code}): {resp.text[:400]}")
+
+        code = data.get("code", "")
+        if code == "OK":
+            print(f"  ✓ Auth  (used {id_field})")
+            return data["body"]["jwe"]
+
+        # NOT_FOUND on keyId → retry with companyId
+        if id_field == "keyId" and "not found" in str(data).lower():
+            print(f"  ⚠ keyId not found, retrying with companyId…")
+            continue
+
+        # Any other error is fatal
+        die(f"Auth failed (code={code}): {data.get('message') or data}")
+
+    die("Auth failed with both keyId and companyId. "
+        "Check RUSTORE_COMPANY_ID secret: it must be the Key ID from "
+        "RuStore Console → Settings → API Keys.")
 
 
 # ── step 2: create version draft ─────────────────────────────────────────────
