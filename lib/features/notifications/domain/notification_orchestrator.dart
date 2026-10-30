@@ -6,6 +6,8 @@ import 'package:habit_tracker/features/habits/domain/habit_entry.dart';
 import 'package:habit_tracker/features/habits/domain/habit_enums.dart';
 import 'package:habit_tracker/features/habits/domain/habits_repository.dart';
 import 'package:habit_tracker/features/settings/domain/settings.dart';
+import 'package:habit_tracker/l10n/app_localizations.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 /// How many days ahead we schedule concrete notifications.
 /// Rebuilt on app open and on every relevant trigger, so 7 is plenty.
@@ -50,6 +52,8 @@ class NotificationOrchestrator {
   Future<void> rebuild(Settings settings) async {
     await _service.cancelAll();
 
+    final l10n = await loadL10n();
+
     // DND "forever" → silence everything.
     if (settings.dndMode == DndMode.forever) return;
 
@@ -82,14 +86,14 @@ class NotificationOrchestrator {
             settings.dayStartHour, settings.dayStartMinute);
         if (_dndBlocks(settings, when)) continue;
 
-        await _service.scheduleAt(
-          id: _morningId(off),
-          when: when,
-          title: 'Привычки на сегодня',
-          body: _summaryBody(due),
-          payload: 'morning',
-          isMorning: true,
-        );
+          await _service.scheduleAt(
+            id: _morningId(off),
+            when: when,
+            title: l10n.notifMorningTitle,
+            body: _summaryBody(l10n, due),
+            payload: 'morning',
+            isMorning: true,
+          );
       }
     }
 
@@ -119,13 +123,13 @@ class NotificationOrchestrator {
             if (when.day != baseWhen.day) break; // don't spill into next day
             if (_dndBlocks(settings, when)) continue;
 
-            await _service.scheduleAt(
+             await _service.scheduleAt(
               id: _individualId(habit.id, off, ti, rep),
               when: when,
               title: habit.title,
               body: habit.description?.isNotEmpty == true
                   ? habit.description!
-                  : 'Пора выполнить привычку',
+                  : l10n.notifTimeToDo,
               payload: 'habit:${habit.id}',
               withActions: true,
             );
@@ -151,12 +155,13 @@ class NotificationOrchestrator {
 
   /// Schedules a single follow-up reminder [minutes] from now ("remind later").
   Future<void> snooze(Habit habit, int minutes) async {
+    final l10n = await loadL10n();
     final when = DateTime.now().add(Duration(minutes: minutes));
     await _service.scheduleAt(
       id: _individualId(habit.id, 0, 9, 9), // reserved snooze slot
       when: when,
       title: habit.title,
-      body: 'Напоминание',
+      body: l10n.notifReminder,
       payload: 'habit:${habit.id}',
       withActions: true,
     );
@@ -176,11 +181,11 @@ class NotificationOrchestrator {
     }).toList();
   }
 
-  String _summaryBody(List<Habit> habits) {
+  String _summaryBody(AppLocalizations l10n, List<Habit> habits) {
     final names = habits.map((h) => h.title).take(5).toList();
     final extra = habits.length - names.length;
     final base = names.join(', ');
-    return extra > 0 ? '$base и ещё $extra' : base;
+    return extra > 0 ? l10n.summaryAndMore(base, extra) : base;
   }
 
   /// True if a notification at [when] falls inside an active DND window.

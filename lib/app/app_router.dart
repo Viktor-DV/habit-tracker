@@ -7,7 +7,6 @@ import 'package:habit_tracker/features/habits/presentation/habit_detail_screen.d
 import 'package:habit_tracker/features/habits/presentation/habit_form_screen.dart';
 import 'package:habit_tracker/features/habits/presentation/home_screen.dart';
 import 'package:habit_tracker/features/habits/presentation/template_picker_screen.dart';
-import 'package:habit_tracker/features/monetization/presentation/paywall_screen.dart';
 import 'package:habit_tracker/features/settings/presentation/settings_screen.dart';
 import 'package:habit_tracker/features/statistics/presentation/statistics_screen.dart';
 
@@ -73,12 +72,6 @@ final appRouter = GoRouter(
         final habit = state.extra as Habit;
         return HabitDetailScreen(habit: habit);
       },
-    ),
-
-    // Paywall
-    GoRoute(
-      path: '/paywall',
-      builder: (_, _) => const PaywallScreen(),
     ),
   ],
 );

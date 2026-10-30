@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 /// Inline error display for AsyncValue.error cases.
 class ErrorView extends StatelessWidget {
@@ -20,7 +21,7 @@ class ErrorView extends StatelessWidget {
                 size: 40, color: theme.colorScheme.error),
             const SizedBox(height: 12),
             Text(
-              'Что-то пошло не так',
+              context.l10n.errorTitle,
               style: theme.textTheme.titleSmall,
               textAlign: TextAlign.center,
             ),
@@ -38,7 +39,7 @@ class ErrorView extends StatelessWidget {
               TextButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Повторить'),
+                label: Text(context.l10n.retry),
               ),
             ],
           ],

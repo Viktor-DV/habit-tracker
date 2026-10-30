@@ -10,7 +10,6 @@ const _kSnoozeInterval = 'snooze_interval_minutes';
 const _kDndMode = 'dnd_mode';
 const _kDndUntil = 'dnd_until_ms';
 const _kHistoryEnabled = 'history_enabled';
-const _kPremiumCached = 'premium_cached_status';
 
 class SettingsRepository {
   SettingsRepository(this._prefs);
@@ -31,7 +30,6 @@ class SettingsRepository {
           ? DateTime.fromMillisecondsSinceEpoch(dndUntilMs)
           : null,
       historyEnabled: _prefs.getBool(_kHistoryEnabled) ?? true,
-      premiumCachedStatus: _prefs.getBool(_kPremiumCached) ?? false,
     );
   }
 
@@ -61,9 +59,6 @@ class SettingsRepository {
 
   Future<void> setHistoryEnabled(bool v) =>
       _prefs.setBool(_kHistoryEnabled, v);
-
-  Future<void> setPremiumCached(bool v) =>
-      _prefs.setBool(_kPremiumCached, v);
 
   static DndMode _parseDndMode(String s) => switch (s) {
         'forever' => DndMode.forever,

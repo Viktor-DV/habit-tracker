@@ -8,7 +8,6 @@ class Settings {
     this.dndMode = DndMode.off,
     this.dndUntil,
     this.historyEnabled = true,
-    this.premiumCachedStatus = false,
   });
 
   /// Hour at which the app considers a new habit-day to start (default 06:00).
@@ -27,9 +26,6 @@ class Settings {
 
   final bool historyEnabled;
 
-  /// Locally cached Premium status for fast offline start.
-  final bool premiumCachedStatus;
-
   Settings copyWith({
     int? dayStartHour,
     int? dayStartMinute,
@@ -38,7 +34,6 @@ class Settings {
     DndMode? dndMode,
     DateTime? dndUntil,
     bool? historyEnabled,
-    bool? premiumCachedStatus,
   }) {
     return Settings(
       dayStartHour: dayStartHour ?? this.dayStartHour,
@@ -50,7 +45,6 @@ class Settings {
       dndMode: dndMode ?? this.dndMode,
       dndUntil: dndUntil ?? this.dndUntil,
       historyEnabled: historyEnabled ?? this.historyEnabled,
-      premiumCachedStatus: premiumCachedStatus ?? this.premiumCachedStatus,
     );
   }
 }

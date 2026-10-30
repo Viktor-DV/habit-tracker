@@ -1,0 +1,246 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "Трекер привычек",
+  "cancel": "Отмена",
+  "ok": "OK",
+
+  "navHome": "Главная",
+  "navHabits": "Привычки",
+  "navStats": "Статистика",
+  "navSettings": "Настройки",
+  "fabCreateHabit": "Создать привычку",
+
+  "homeTitle": "Главная",
+  "today": "Сегодня",
+  "yesterday": "Вчера",
+  "tomorrow": "Завтра",
+  "filterAllActive": "Все активные",
+  "emptyNoHabitsTitle": "Привычек нет",
+  "emptyNoHabitsSubtitle": "Нажмите + чтобы создать первую привычку",
+  "emptyNoActiveTitle": "Нет активных привычек",
+  "emptyNoActiveSubtitle": "Создайте первую привычку, нажав +",
+  "resetSkip": "Пропустить",
+  "resetReset": "Сбросить",
+  "quantityValueHint": "Значение",
+  "negSuccess": "Успех",
+  "negFailure": "Срыв",
+  "negSkip": "Пропуск",
+
+  "allHabitsTitle": "Все привычки",
+  "searchHint": "Поиск привычек…",
+  "filterActive": "Активные",
+  "filterInactive": "Неактивные",
+  "filterAll": "Все",
+  "kindPositive": "Позитивные",
+  "kindNegative": "Негативные",
+  "reorderDone": "Готово",
+  "reorderSort": "Сортировать",
+  "emptyHabitsTitle": "Привычек нет",
+  "emptyHabitsSubtitle": "Создайте первую привычку, нажав +",
+  "reorderHint": "Перетащите для изменения порядка",
+  "metaPositive": "Позитивная",
+  "metaNegative": "Негативная",
+  "metaInactive": "Неактивна",
+  "repeatEveryDay": "Каждый день",
+  "repeatSelectedWeekdays": "По дням",
+  "repeatEveryNDays": "Через N дней",
+  "repeatNTimesPerNDays": "N раз за N дней",
+
+  "deleteTitle": "Удалить привычку?",
+  "deleteBody": "Все записи тоже будут удалены.",
+  "deleteConfirm": "Удалить",
+  "editTooltip": "Редактировать",
+  "toggleActivate": "Активизировать",
+  "toggleDeactivate": "Деактивировать",
+  "badgeActive": "Активна",
+  "badgeInactive": "Неактивна",
+  "badgePositive": "Позитивная",
+  "badgeNegative": "Негативная",
+  "infoTitle": "Информация",
+  "infoMechanics": "Механика",
+  "infoGoal": "Цель",
+  "infoSchedule": "Расписание",
+  "infoStart": "Начало",
+  "infoCreated": "Создана",
+  "completionYesNo": "Да / Нет",
+  "completionQuantity": "Количество",
+  "completionTime": "Время",
+  "completionAvoidance": "Избегание",
+  "scheduleEveryDay": "Каждый день",
+  "scheduleSelectedWeekdays": "По дням недели",
+  "scheduleEveryNDays": "Каждые {count} дн.",
+  "@scheduleEveryNDays": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "scheduleNTimesPerNDays": "{goalCount} раз за {periodDays} дн.",
+  "@scheduleNTimesPerNDays": {
+    "placeholders": {
+      "goalCount": { "type": "int" },
+      "periodDays": { "type": "int" }
+    }
+  },
+  "metricsTitle": "Статистика",
+  "metricStreak": "Серия",
+  "metricBest": "Рекорд",
+  "metricDone": "Выполнено",
+  "metric30days": "30 дней",
+  "chartWeekly": "По неделям",
+  "weekThis": "Эта",
+  "historyTitle": "История (последние 3 месяца)",
+  "timerTitle": "Таймер",
+  "timerSaveQuestion": "Сохранить время?",
+  "timerSaveBody": "Прошло {duration}. Сохранить как выполнение?",
+  "@timerSaveBody": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+  "timerNo": "Нет",
+  "timerSave": "Сохранить",
+  "timerSaved": "Сохранено: {minutes} мин",
+  "@timerSaved": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "timerStart": "Старт",
+  "timerStop": "Стоп",
+  "timerReset": "Сброс",
+  "unitMinutes": "мин",
+
+  "formCreateTitle": "Создать привычку",
+  "formEditTitle": "Редактировать",
+  "formSave": "Сохранить",
+  "formCreate": "Создать",
+  "visualLabel": "Визуал",
+  "visualEmoji": "Эмодзи",
+  "visualIcon": "Иконка",
+  "colorLabel": "Цвет",
+  "emojiHint": "Вставьте эмодзи",
+  "titleDescLabel": "Название и описание",
+  "titleHint": "Название привычки *",
+  "titleRequired": "Введите название",
+  "descHint": "Описание (необязательно)",
+  "mechanicsTypeLabel": "Тип",
+  "mechanicsLabel": "Механика",
+  "goalLabel": "Цель",
+  "targetValueHint": "Значение",
+  "targetUnitTimeHint": "мин / ч",
+  "targetUnitOtherHint": "единица",
+  "timerOnScreen": "Таймер на экране привычки",
+  "scheduleLabel": "Расписание",
+  "everyNDaysLabel": "Каждые N дней",
+  "timesLabel": "Раз",
+  "inNDaysLabel": "в N дней",
+  "startDateLabel": "Дата старта",
+  "notificationsLabel": "Уведомления",
+  "reminderTimeLabel": "Время напоминаний",
+  "addTime": "Добавить время",
+  "notifOff": "Выкл",
+  "notifMorning": "Утром",
+  "notifMorningPlus": "Утром + своё время",
+
+  "templateTitle": "Новая привычка",
+  "customHabit": "Своя привычка",
+  "customHabitSubtitle": "Настрой с нуля",
+
+  "statsTitle": "Статистика",
+  "period7": "7 дней",
+  "period30": "Месяц",
+  "period90": "3 месяца",
+  "periodYear": "Год",
+  "emptyStatsTitle": "Пока нет данных",
+  "emptyStatsSubtitle": "Отмечайте привычки, чтобы видеть прогресс",
+  "avgCompletion": "Среднее\nвыполнение",
+  "totalDone": "Всего\nвыполнено",
+  "bestHabit": "Лучшая",
+  "trendTitle": "ДИНАМИКА",
+  "noData": "Нет данных",
+  "byHabitTitle": "ПО ПРИВЫЧКАМ",
+
+  "settingsTitle": "Настройки",
+  "appearanceSection": "Оформление",
+  "notificationsSection": "Уведомления",
+  "daySection": "День",
+  "historySection": "История",
+  "themeLabel": "Тема",
+  "themeLight": "Светлая",
+  "themeSystem": "Системная",
+  "themeDark": "Тёмная",
+  "dndTitle": "Заглушить все уведомления",
+  "dndSubtitleOff": "Уведомления активны",
+  "dndMutePeriod": "Заглушить на период",
+  "dndDisable": "Отключить",
+  "dndForever": "Заглушено навсегда",
+  "dndUntil": "Заглушено до {date}",
+  "@dndUntil": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "dndMuted": "Заглушено",
+  "dayStartTitle": "Начало нового дня",
+  "dayStartPickerHint": "Начало нового дня",
+  "snoozeTitle": "Интервал «Напомнить позже»",
+  "snoozeUnit": "{minutes} мин",
+  "@snoozeUnit": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "morningSummaryTitle": "Утреннее напоминание",
+  "morningSummarySubtitle": "Сводка привычек в начале нового дня ({time})",
+  "@morningSummarySubtitle": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "historyKeepTitle": "Хранить историю",
+  "historyKeepSubtitle": "Без истории долгосрочная статистика ограничена",
+  "historyCount": "Записей: {count}  ·  Авточистка при >50 МБ",
+  "@historyCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "historyClearAll": "Очистить всё",
+  "historyClearN": "Очистить последние N",
+  "clearAllTitle": "Очистить всю историю?",
+  "clearAllBody": "Это действие нельзя отменить.",
+  "clearAllConfirm": "Очистить",
+  "clearNTitle": "Удалить последних N записей",
+  "clearNSubtitle": "Всего записей: {total}",
+  "@clearNSubtitle": {
+    "placeholders": {
+      "total": { "type": "int" }
+    }
+  },
+  "numberHint": "Введите число",
+  "intervalDialogTitle": "Интервал (мин)",
+
+  "errorTitle": "Что-то пошло не так",
+  "retry": "Повторить",
+
+  "permOffTitle": "Уведомления отключены",
+  "permOffSubtitle": "Нажмите, чтобы разрешить напоминания",
+
+  "notifMorningTitle": "Привычки на сегодня",
+  "notifTimeToDo": "Пора выполнить привычку",
+  "notifReminder": "Напоминание",
+  "summaryAndMore": "{base} и ещё {count}",
+  "@summaryAndMore": {
+    "placeholders": {
+      "base": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
+  "channelMorning": "Утренняя сводка",
+  "channelHabits": "Напоминания о привычках",
+  "channelMorningDesc": "Сводка привычек на день",
+  "channelHabitsDesc": "Напоминания по привычкам",
+  "actionDone": "Выполнено",
+  "actionSnooze": "Напомнить позже"
+}

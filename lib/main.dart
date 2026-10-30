@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:habit_tracker/app/app.dart';
 import 'package:habit_tracker/features/notifications/data/notification_handler.dart';
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
+import 'package:habit_tracker/features/monetization/data/monetization_providers.dart';
 import 'package:habit_tracker/features/settings/data/settings_repository.dart';
 
 void main() async {
@@ -34,6 +35,9 @@ void main() async {
 
   // Rebuild the schedule on every cold start (covers reboot + edits offline).
   await rebuildNotifications(container);
+
+  // Yandex Mobile Ads SDK init.
+  await container.read(adsRepositoryProvider).initialize();
 
   runApp(
     UncontrolledProviderScope(

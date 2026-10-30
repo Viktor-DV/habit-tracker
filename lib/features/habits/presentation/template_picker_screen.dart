@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:habit_tracker/app/app_theme.dart';
 import 'package:habit_tracker/features/habits/domain/habit_templates.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 /// Template picker — shown when FAB is pressed.
 /// Routes to HabitFormScreen with a pre-filled template or null (custom).
@@ -13,7 +14,7 @@ class TemplatePickerScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Новая привычка')),
+      appBar: AppBar(title: Text(context.l10n.templateTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
@@ -73,7 +74,7 @@ class _CustomCard extends StatelessWidget {
                 color: AppTheme.primaryColor.withValues(alpha: 0.12),
                 borderRadius: AppTheme.chipRadius,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.add,
                 color: AppTheme.primaryColor,
                 size: 22,
@@ -85,18 +86,18 @@ class _CustomCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Своя привычка',
+                    context.l10n.customHabit,
                     style: theme.textTheme.titleSmall
                         ?.copyWith(color: AppTheme.primaryColor),
                   ),
                   Text(
-                    'Настрой с нуля',
+                    context.l10n.customHabitSubtitle,
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
               size: 20,
               color: AppTheme.primaryColor,

@@ -6,10 +6,10 @@ import 'package:habit_tracker/core/database/database_provider.dart';
 import 'package:habit_tracker/features/habits/domain/habit.dart';
 import 'package:habit_tracker/features/habits/domain/habit_entry.dart';
 import 'package:habit_tracker/features/habits/domain/habit_enums.dart';
-import 'package:habit_tracker/features/monetization/data/monetization_providers.dart';
 import 'package:habit_tracker/features/statistics/domain/statistics_calculator.dart';
 import 'package:habit_tracker/shared/widgets/empty_state_view.dart';
 import 'package:habit_tracker/shared/widgets/error_view.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 // ---------------------------------------------------------------------------
 // Period selection
@@ -18,11 +18,11 @@ import 'package:habit_tracker/shared/widgets/error_view.dart';
 enum StatPeriod { days7, days30, days90, year }
 
 extension on StatPeriod {
-  String get label => switch (this) {
-        StatPeriod.days7 => '7 дней',
-        StatPeriod.days30 => 'Месяц',
-        StatPeriod.days90 => '3 месяца',
-        StatPeriod.year => 'Год',
+  String label(BuildContext context) => switch (this) {
+        StatPeriod.days7 => context.l10n.period7,
+        StatPeriod.days30 => context.l10n.period30,
+        StatPeriod.days90 => context.l10n.period90,
+        StatPeriod.year => context.l10n.periodYear,
       };
   int get days => switch (this) {
         StatPeriod.days7 => 7,
@@ -71,6 +71,7 @@ class _OverallStats {
 
 final _statsProvider =
     FutureProvider.autoDispose<_OverallStats>((ref) async {
+  ref.watch(habitsRevisionProvider);
   final repo = ref.watch(habitsRepositoryProvider);
   final period = ref.watch(_periodProvider);
 
@@ -154,13 +155,11 @@ class StatisticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(_periodProvider);
     final statsAsync = ref.watch(_statsProvider);
-    final isPremium = ref.watch(isPremiumProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Статистика')),
+      appBar: AppBar(title: Text(context.l10n.statsTitle)),
       body: Column(
         children: [
-          if (!isPremium) const _BannerAdStub(),
           _PeriodBar(period: period),
           Expanded(
             child: statsAsync.when(
@@ -169,10 +168,10 @@ class StatisticsScreen extends ConsumerWidget {
               error: (e, _) => ErrorView(error: e),
               data: (stats) {
                 if (stats.perHabit.isEmpty) {
-                  return const EmptyStateView(
+                  return EmptyStateView(
                     emoji: '📊',
-                    title: 'Пока нет данных',
-                    subtitle: 'Отмечайте привычки, чтобы видеть прогресс',
+                    title: context.l10n.emptyStatsTitle,
+                    subtitle: context.l10n.emptyStatsSubtitle,
                   );
                 }
                 return ListView(
@@ -233,7 +232,7 @@ class _PeriodBar extends ConsumerWidget {
                   ),
                 ),
                 child: Text(
-                  p.label,
+                  p.label(context),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: selected ? Colors.white : AppTheme.textSecondary,
                         fontWeight:
@@ -264,13 +263,13 @@ class _SummaryCards extends StatelessWidget {
         _SummaryCard(
           emoji: '📊',
           value: '${(stats.avgCompletion * 100).round()}%',
-          label: 'Среднее\nвыполнение',
+          label: context.l10n.avgCompletion,
         ),
         const SizedBox(width: 10),
         _SummaryCard(
           emoji: '✅',
           value: '${stats.totalCompleted}',
-          label: 'Всего\nвыполнено',
+          label: context.l10n.totalDone,
         ),
         const SizedBox(width: 10),
         _SummaryCard(
@@ -278,7 +277,7 @@ class _SummaryCards extends StatelessWidget {
           value: stats.bestHabit != null
               ? '${(stats.bestHabit!.stats.completionRate * 100).round()}%'
               : '—',
-          label: stats.bestHabit?.habit.title ?? 'Лучшая',
+          label: stats.bestHabit?.habit.title ?? context.l10n.bestHabit,
         ),
       ],
     );
@@ -301,7 +300,7 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.surfaceColor,
           borderRadius: AppTheme.cardRadius,
           border: Border.all(color: AppTheme.dividerColor),
         ),
@@ -346,7 +345,7 @@ class _TrendChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         borderRadius: AppTheme.cardRadius,
         border: Border.all(color: AppTheme.dividerColor),
       ),
@@ -354,7 +353,7 @@ class _TrendChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'ДИНАМИКА',
+            context.l10n.trendTitle,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppTheme.textSecondary,
                   letterSpacing: 0.7,
@@ -364,7 +363,7 @@ class _TrendChart extends StatelessWidget {
           SizedBox(
             height: 90,
             child: ratios.isEmpty
-                ? const Center(child: Text('Нет данных'))
+                ? Center(child: Text(context.l10n.noData))
                 : _BarRow(ratios: ratios),
           ),
         ],
@@ -436,7 +435,7 @@ class _HabitBreakdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         borderRadius: AppTheme.cardRadius,
         border: Border.all(color: AppTheme.dividerColor),
       ),
@@ -444,7 +443,7 @@ class _HabitBreakdown extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'ПО ПРИВЫЧКАМ',
+            context.l10n.byHabitTitle,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppTheme.textSecondary,
                   letterSpacing: 0.7,
@@ -528,35 +527,5 @@ class _HabitStatRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Ad stub + empty state
-// ---------------------------------------------------------------------------
-
-class _BannerAdStub extends StatelessWidget {
-  const _BannerAdStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      color: AppTheme.cardBackground,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.ad_units_outlined,
-              size: 16, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-          Text(
-            'Реклама · Убрать → Premium',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // _EmptyState removed — replaced by shared EmptyStateView.
+

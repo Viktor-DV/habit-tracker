@@ -9,6 +9,8 @@ import 'package:habit_tracker/features/habits/domain/habit_enums.dart';
 import 'package:habit_tracker/features/habits/domain/habit_templates.dart';
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
 import 'package:habit_tracker/features/settings/data/settings_repository.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
+import 'package:habit_tracker/l10n/l10n_date.dart';
 
 // ---------------------------------------------------------------------------
 // Palette & icons available for selection
@@ -197,6 +199,8 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
       } else {
         await repo.insert(_data.toHabit());
       }
+      // Refresh kept-alive Home/list/stats providers.
+      ref.read(habitsRevisionProvider.notifier).bump();
       // Notifications depend on schedule/times → rebuild.
       await ref
           .read(notificationOrchestratorProvider)
@@ -216,7 +220,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     final isEdit = widget.editHabit != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Редактировать' : 'Создать привычку'),
+        title: Text(isEdit ? context.l10n.formEditTitle : context.l10n.formCreateTitle),
         actions: [
           if (_saving)
             const Padding(
@@ -233,8 +237,8 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
             TextButton(
               onPressed: _save,
               child: Text(
-                isEdit ? 'Сохранить' : 'Создать',
-                style: const TextStyle(
+                isEdit ? context.l10n.formSave : context.l10n.formCreate,
+                style: TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                 ),
@@ -286,15 +290,15 @@ class _VisualSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('Визуал'),
+          _SectionLabel(context.l10n.visualLabel),
           const SizedBox(height: 12),
           Row(
             children: [
               // Visual type toggle
               _SegmentedPicker<VisualType>(
-                options: const [
-                  (VisualType.emoji, 'Эмодзи'),
-                  (VisualType.icon, 'Иконка'),
+                options: [
+                  (VisualType.emoji, context.l10n.visualEmoji),
+                  (VisualType.icon, context.l10n.visualIcon),
                 ],
                 selected: data.visualType,
                 onSelected: (v) {
@@ -322,7 +326,7 @@ class _VisualSection extends StatelessWidget {
               },
             ),
           const SizedBox(height: 14),
-          _SectionLabel('Цвет'),
+          _SectionLabel(context.l10n.colorLabel),
           const SizedBox(height: 10),
           _ColorPalette(
             selected: data.color,
@@ -361,9 +365,9 @@ class _EmojiInput extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Вставьте эмодзи',
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: InputDecoration(
+              hintText: context.l10n.emojiHint,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             onChanged: (v) {
               // Take the first grapheme cluster (emoji or char)
@@ -469,21 +473,21 @@ class _BasicInfoSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('Название и описание'),
+          _SectionLabel(context.l10n.titleDescLabel),
           const SizedBox(height: 12),
           TextFormField(
             controller: titleCtrl,
-            decoration: const InputDecoration(hintText: 'Название привычки *'),
+            decoration: InputDecoration(hintText: context.l10n.titleHint),
             textCapitalization: TextCapitalization.sentences,
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Введите название' : null,
+                (v == null || v.trim().isEmpty) ? context.l10n.titleRequired : null,
           ),
           const SizedBox(height: 10),
           TextField(
             controller: descCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Описание (необязательно)',
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: InputDecoration(
+              hintText: context.l10n.descHint,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             maxLines: 2,
             textCapitalization: TextCapitalization.sentences,
@@ -512,13 +516,13 @@ class _MechanicsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('Тип'),
+          _SectionLabel(context.l10n.mechanicsTypeLabel),
           const SizedBox(height: 10),
           // Positive / Negative
           _SegmentedPicker<HabitKind>(
-            options: const [
-              (HabitKind.positive, 'Позитивная'),
-              (HabitKind.negative, 'Негативная'),
+            options: [
+              (HabitKind.positive, context.l10n.metaPositive),
+              (HabitKind.negative, context.l10n.metaNegative),
             ],
             selected: data.habitKind,
             onSelected: (v) {
@@ -532,15 +536,15 @@ class _MechanicsSection extends StatelessWidget {
             },
           ),
           const SizedBox(height: 12),
-          _SectionLabel('Механика'),
+          _SectionLabel(context.l10n.mechanicsLabel),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: _completionTypes(data.habitKind).map((ct) {
-              return _Chip(
-                label: _completionLabel(ct),
-                selected: data.completionType == ct,
+                return _Chip(
+                  label: _completionLabel(context, ct),
+                  selected: data.completionType == ct,
                 onTap: () {
                   data.completionType = ct;
                   onChanged();
@@ -550,14 +554,14 @@ class _MechanicsSection extends StatelessWidget {
           ),
           if (showTarget) ...[
             const SizedBox(height: 14),
-            _SectionLabel('Цель'),
+            _SectionLabel(context.l10n.goalLabel),
             const SizedBox(height: 10),
             Row(
               children: [
                 SizedBox(
                   width: 100,
                   child: TextField(
-                    decoration: const InputDecoration(hintText: 'Значение'),
+                    decoration: InputDecoration(hintText: context.l10n.targetValueHint),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
@@ -575,8 +579,8 @@ class _MechanicsSection extends StatelessWidget {
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: data.completionType == CompletionType.time
-                          ? 'мин / ч'
-                          : 'единица',
+                          ? context.l10n.targetUnitTimeHint
+                          : context.l10n.targetUnitOtherHint,
                     ),
                     onChanged: (v) => data.targetUnit = v,
                     controller:
@@ -588,9 +592,9 @@ class _MechanicsSection extends StatelessWidget {
           ],
           if (data.completionType == CompletionType.time) ...[
             const SizedBox(height: 10),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Таймер на экране привычки'),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(context.l10n.timerOnScreen),
               value: data.timerEnabled,
               onChanged: (v) {
                 data.timerEnabled = v;
@@ -613,11 +617,11 @@ class _MechanicsSection extends StatelessWidget {
               CompletionType.time,
             ];
 
-  String _completionLabel(CompletionType ct) => switch (ct) {
-        CompletionType.yesNo => 'Да / Нет',
-        CompletionType.quantity => 'Количество',
-        CompletionType.time => 'Время',
-        CompletionType.avoidance => 'Избегание',
+  String _completionLabel(BuildContext context, CompletionType ct) => switch (ct) {
+        CompletionType.yesNo => context.l10n.completionYesNo,
+        CompletionType.quantity => context.l10n.completionQuantity,
+        CompletionType.time => context.l10n.completionTime,
+        CompletionType.avoidance => context.l10n.completionAvoidance,
       };
 }
 
@@ -636,14 +640,14 @@ class _ScheduleSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('Расписание'),
+          _SectionLabel(context.l10n.scheduleLabel),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: RepeatType.values.map((rt) {
               return _Chip(
-                label: _repeatLabel(rt),
+                label: _repeatLabel(context, rt),
                 selected: data.repeatType == rt,
                 onTap: () {
                   data.repeatType = rt;
@@ -664,7 +668,7 @@ class _ScheduleSection extends StatelessWidget {
             ),
           if (data.repeatType == RepeatType.everyNDays)
             _NumberRow(
-              label: 'Каждые N дней',
+              label: context.l10n.everyNDaysLabel,
               value: data.repeatInterval,
               min: 2,
               max: 90,
@@ -677,7 +681,7 @@ class _ScheduleSection extends StatelessWidget {
             Column(
               children: [
                 _NumberRow(
-                  label: 'Раз',
+                  label: context.l10n.timesLabel,
                   value: data.repeatGoalCount,
                   min: 1,
                   max: 30,
@@ -688,7 +692,7 @@ class _ScheduleSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _NumberRow(
-                  label: 'в N дней',
+                  label: context.l10n.inNDaysLabel,
                   value: data.repeatPeriodDays,
                   min: 2,
                   max: 90,
@@ -700,7 +704,7 @@ class _ScheduleSection extends StatelessWidget {
               ],
             ),
           const SizedBox(height: 14),
-          _SectionLabel('Дата старта'),
+          _SectionLabel(context.l10n.startDateLabel),
           const SizedBox(height: 8),
           _DatePickerTile(
             date: data.repeatStartDate,
@@ -714,11 +718,11 @@ class _ScheduleSection extends StatelessWidget {
     );
   }
 
-  String _repeatLabel(RepeatType rt) => switch (rt) {
-        RepeatType.everyDay => 'Каждый день',
-        RepeatType.selectedWeekdays => 'По дням недели',
-        RepeatType.everyNDays => 'Каждые N дней',
-        RepeatType.nTimesPerNDays => 'N раз за N дней',
+  String _repeatLabel(BuildContext context, RepeatType rt) => switch (rt) {
+        RepeatType.everyDay => context.l10n.repeatEveryDay,
+        RepeatType.selectedWeekdays => context.l10n.repeatSelectedWeekdays,
+        RepeatType.everyNDays => context.l10n.everyNDaysLabel,
+        RepeatType.nTimesPerNDays => context.l10n.repeatNTimesPerNDays,
       };
 }
 
@@ -726,8 +730,6 @@ class _WeekdayPicker extends StatelessWidget {
   const _WeekdayPicker({required this.selected, required this.onChanged});
   final List<int> selected;
   final ValueChanged<List<int>> onChanged;
-
-  static const _days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
   @override
   Widget build(BuildContext context) {
@@ -737,7 +739,7 @@ class _WeekdayPicker extends StatelessWidget {
         final weekday = i + 1;
         final isOn = selected.contains(weekday);
         return _Chip(
-          label: _days[i],
+          label: weekdayShort(context, i),
           selected: isOn,
           onTap: () {
             final next = List<int>.from(selected);
@@ -831,10 +833,10 @@ class _DatePickerTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined, size: 18, color: AppTheme.textSecondary),
+            Icon(Icons.calendar_today_outlined, size: 18, color: AppTheme.textSecondary),
             const SizedBox(width: 8),
             Text(
-              _fmt(date),
+              formatDate(context, date),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -842,9 +844,6 @@ class _DatePickerTile extends StatelessWidget {
       ),
     );
   }
-
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 }
 
 // ---------------------------------------------------------------------------
@@ -862,14 +861,14 @@ class _NotificationsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionLabel('Уведомления'),
+          _SectionLabel(context.l10n.notificationsLabel),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: NotificationMode.values.map((nm) {
               return _Chip(
-                label: _notifLabel(nm),
+                label: _notifLabel(context, nm),
                 selected: data.notificationMode == nm,
                 onTap: () {
                   data.notificationMode = nm;
@@ -880,7 +879,7 @@ class _NotificationsSection extends StatelessWidget {
           ),
           if (data.notificationMode == NotificationMode.dailyPlusIndividual) ...[
             const SizedBox(height: 14),
-            _SectionLabel('Время напоминаний'),
+            _SectionLabel(context.l10n.reminderTimeLabel),
             const SizedBox(height: 8),
             ...data.notificationTimes.asMap().entries.map((e) {
               return Padding(
@@ -905,10 +904,10 @@ class _NotificationsSection extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => _addTime(context),
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Добавить время'),
+              label: Text(context.l10n.addTime),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryColor,
-                side: const BorderSide(color: AppTheme.primaryColor),
+                side: BorderSide(color: AppTheme.primaryColor),
                 shape: const RoundedRectangleBorder(
                     borderRadius: AppTheme.chipRadius),
               ),
@@ -932,10 +931,10 @@ class _NotificationsSection extends StatelessWidget {
     onChanged();
   }
 
-  String _notifLabel(NotificationMode m) => switch (m) {
-        NotificationMode.none => 'Выкл',
-        NotificationMode.dailySummary => 'Утром',
-        NotificationMode.dailyPlusIndividual => 'Утром + своё время',
+  String _notifLabel(BuildContext context, NotificationMode m) => switch (m) {
+        NotificationMode.none => context.l10n.notifOff,
+        NotificationMode.dailySummary => context.l10n.notifMorning,
+        NotificationMode.dailyPlusIndividual => context.l10n.notifMorningPlus,
       };
 }
 

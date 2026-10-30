@@ -5,7 +5,7 @@ import 'package:habit_tracker/app/app_theme.dart';
 import 'package:habit_tracker/core/database/database_provider.dart';
 import 'package:habit_tracker/features/habits/domain/habit.dart';
 import 'package:habit_tracker/features/habits/domain/habit_enums.dart';
-import 'package:habit_tracker/features/monetization/data/monetization_providers.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 import 'package:habit_tracker/shared/widgets/empty_state_view.dart';
 import 'package:habit_tracker/shared/widgets/error_view.dart';
 import 'package:habit_tracker/shared/widgets/skeleton_loader.dart';
@@ -55,6 +55,7 @@ final _filterProvider =
 // ---------------------------------------------------------------------------
 
 final _allHabitsProvider = FutureProvider.autoDispose<List<Habit>>((ref) async {
+  ref.watch(habitsRevisionProvider);
   final repo = ref.watch(habitsRepositoryProvider);
   final filter = ref.watch(_filterProvider);
   final all = await repo.getAll();
@@ -101,16 +102,12 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
   Widget build(BuildContext context) {
     final filter = ref.watch(_filterProvider);
     final habitsAsync = ref.watch(_allHabitsProvider);
-    final isPremium = ref.watch(isPremiumProvider);
 
     return Scaffold(
       appBar: _buildAppBar(filter),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner ad stub (free users)
-          if (!isPremium) const _BannerAdStub(),
-
           // Filter chips
           _FilterBar(filter: filter),
 
@@ -123,23 +120,21 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
               ),
               error: (e, _) => ErrorView(error: e),
               data: (habits) => habits.isEmpty
-                  ? const EmptyStateView(
+                  ? EmptyStateView(
                       emoji: '📋',
-                      title: 'Привычек нет',
-                      subtitle: 'Создайте первую привычку, нажав +',
+                      title: context.l10n.emptyHabitsTitle,
+                      subtitle: context.l10n.emptyHabitsSubtitle,
                     )
                   : _reordering
-                      ? _ReorderList(
-                          habits: habits,
-                          isPremium: isPremium,
-                          onReorder: _onReorder,
-                          onStopReorder: () =>
-                              setState(() => _reordering = false),
-                        )
-                      : _HabitList(
-                          habits: habits,
-                          isPremium: isPremium,
-                        ),
+            ? _ReorderList(
+                habits: habits,
+                onReorder: _onReorder,
+                onStopReorder: () =>
+                    setState(() => _reordering = false),
+              )
+            : _HabitList(
+                habits: habits,
+              ),
             ),
           ),
         ],
@@ -162,8 +157,8 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
         title: TextField(
           controller: _searchCtrl,
           autofocus: true,
-          decoration: const InputDecoration.collapsed(
-            hintText: 'Поиск привычек…',
+          decoration: InputDecoration.collapsed(
+            hintText: context.l10n.searchHint,
           ),
           onChanged: (v) => ref.read(_filterProvider.notifier).set(
               filter.copyWith(searchQuery: v)),
@@ -172,7 +167,7 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
     }
 
     return AppBar(
-      title: const Text('Все привычки'),
+      title: Text(context.l10n.allHabitsTitle),
       actions: [
         IconButton(
           icon: const Icon(Icons.search_outlined),
@@ -183,7 +178,7 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
             _reordering ? Icons.check : Icons.swap_vert,
             color: _reordering ? AppTheme.primaryColor : null,
           ),
-          tooltip: _reordering ? 'Готово' : 'Сортировать',
+          tooltip: _reordering ? context.l10n.reorderDone : context.l10n.reorderSort,
           onPressed: () => setState(() => _reordering = !_reordering),
         ),
       ],
@@ -196,6 +191,7 @@ class _AllHabitsScreenState extends ConsumerState<AllHabitsScreen> {
       await repo.update(reordered[i].copyWith(sortOrder: i));
     }
     ref.invalidate(_allHabitsProvider);
+    ref.read(habitsRevisionProvider.notifier).bump();
   }
 }
 
@@ -216,35 +212,35 @@ class _FilterBar extends ConsumerWidget {
         children: [
           // Status filter
           _Chip(
-            label: 'Активные',
+            label: context.l10n.filterActive,
             selected: filter.status == _StatusFilter.active,
             onTap: () => ref.read(_filterProvider.notifier).set(
                 filter.copyWith(status: _StatusFilter.active)),
           ),
           const SizedBox(width: 8),
           _Chip(
-            label: 'Неактивные',
+            label: context.l10n.filterInactive,
             selected: filter.status == _StatusFilter.inactive,
             onTap: () => ref.read(_filterProvider.notifier).set(
                 filter.copyWith(status: _StatusFilter.inactive)),
           ),
           const SizedBox(width: 8),
           _Chip(
-            label: 'Все',
+            label: context.l10n.filterAll,
             selected: filter.status == _StatusFilter.all,
             onTap: () => ref.read(_filterProvider.notifier).set(
                 filter.copyWith(status: _StatusFilter.all)),
           ),
           const SizedBox(width: 16),
           _Chip(
-            label: 'Позитивные',
+            label: context.l10n.kindPositive,
             selected: filter.kind == _KindFilter.positive,
             onTap: () => ref.read(_filterProvider.notifier).set(
                 filter.copyWith(kind: _KindFilter.positive)),
           ),
           const SizedBox(width: 8),
           _Chip(
-            label: 'Негативные',
+            label: context.l10n.kindNegative,
             selected: filter.kind == _KindFilter.negative,
             onTap: () => ref.read(_filterProvider.notifier).set(
                 filter.copyWith(kind: _KindFilter.negative)),
@@ -269,19 +265,14 @@ class _FilterBar extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _HabitList extends StatelessWidget {
-  const _HabitList({required this.habits, required this.isPremium});
+  const _HabitList({required this.habits});
   final List<Habit> habits;
-  final bool isPremium;
 
   @override
   Widget build(BuildContext context) {
-    // Insert native ad every 5 habits for free users
     final items = <_ListItem>[];
-    for (int i = 0; i < habits.length; i++) {
-      items.add(_ListItem.habit(habits[i]));
-      if (!isPremium && (i + 1) % 5 == 0 && i < habits.length - 1) {
-        items.add(const _ListItem.nativeAd());
-      }
+    for (final h in habits) {
+      items.add(_ListItem.habit(h));
     }
 
     return ListView.separated(
@@ -290,7 +281,6 @@ class _HabitList extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final item = items[i];
-        if (item.isAd) return const _NativeAdStub();
         return _HabitRow(habit: item.habit!);
       },
     );
@@ -299,9 +289,6 @@ class _HabitList extends StatelessWidget {
 
 class _ListItem {
   const _ListItem.habit(this.habit) : isAd = false;
-  const _ListItem.nativeAd()
-      : habit = null,
-        isAd = true;
   final Habit? habit;
   final bool isAd;
 }
@@ -313,12 +300,10 @@ class _ListItem {
 class _ReorderList extends StatefulWidget {
   const _ReorderList({
     required this.habits,
-    required this.isPremium,
     required this.onReorder,
     required this.onStopReorder,
   });
   final List<Habit> habits;
-  final bool isPremium;
   final Future<void> Function(List<Habit>) onReorder;
   final VoidCallback onStopReorder;
 
@@ -341,8 +326,8 @@ class _ReorderListState extends State<_ReorderList> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            'Перетащите для изменения порядка',
+          child:           Text(
+            context.l10n.reorderHint,
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -364,7 +349,7 @@ class _ReorderListState extends State<_ReorderList> {
             itemBuilder: (_, i) => _HabitRow(
               key: ValueKey(_habits[i].id),
               habit: _habits[i],
-              trailing: const Icon(
+              trailing: Icon(
                 Icons.drag_handle,
                 color: AppTheme.textSecondary,
               ),
@@ -430,7 +415,7 @@ class _HabitRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _meta(habit),
+                    _meta(context, habit),
                     style: theme.textTheme.bodySmall
                         ?.copyWith(color: AppTheme.textSecondary),
                   ),
@@ -441,7 +426,7 @@ class _HabitRow extends StatelessWidget {
               const SizedBox(width: 8),
               trailing!,
             ] else
-              const Icon(
+              Icon(
                 Icons.chevron_right,
                 size: 18,
                 color: AppTheme.textSecondary,
@@ -452,19 +437,21 @@ class _HabitRow extends StatelessWidget {
     );
   }
 
-  String _meta(Habit h) {
+  String _meta(BuildContext context, Habit h) {
     final parts = <String>[];
-    parts.add(h.habitKind == HabitKind.positive ? 'Позитивная' : 'Негативная');
-    parts.add(_repeatShort(h.repeatType));
-    if (!h.isActive) parts.add('Неактивна');
+    parts.add(h.habitKind == HabitKind.positive
+        ? context.l10n.metaPositive
+        : context.l10n.metaNegative);
+    parts.add(_repeatShort(context, h.repeatType));
+    if (!h.isActive) parts.add(context.l10n.metaInactive);
     return parts.join(' · ');
   }
 
-  String _repeatShort(RepeatType rt) => switch (rt) {
-        RepeatType.everyDay => 'Каждый день',
-        RepeatType.selectedWeekdays => 'По дням',
-        RepeatType.everyNDays => 'Через N дней',
-        RepeatType.nTimesPerNDays => 'N раз за N дней',
+  String _repeatShort(BuildContext context, RepeatType rt) => switch (rt) {
+        RepeatType.everyDay => context.l10n.repeatEveryDay,
+        RepeatType.selectedWeekdays => context.l10n.repeatSelectedWeekdays,
+        RepeatType.everyNDays => context.l10n.repeatEveryNDays,
+        RepeatType.nTimesPerNDays => context.l10n.repeatNTimesPerNDays,
       };
 }
 
@@ -493,70 +480,6 @@ class _HabitVisual extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Ad stubs  (ponytail: real ads wired in Этап 12)
-// ---------------------------------------------------------------------------
-
-class _BannerAdStub extends StatelessWidget {
-  const _BannerAdStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      color: AppTheme.cardBackground,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.ad_units_outlined,
-              size: 16, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-          Text(
-            'Реклама · Убрать → Premium',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NativeAdStub extends StatelessWidget {
-  const _NativeAdStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 72,
-      decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
-        borderRadius: AppTheme.cardRadius,
-        border: Border.all(color: AppTheme.dividerColor),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.ad_units_outlined,
-              size: 14, color: AppTheme.textSecondary),
-          const SizedBox(width: 6),
-          Text(
-            'Нативная реклама',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// _EmptyState removed — replaced by shared EmptyStateView.
 
 // ---------------------------------------------------------------------------
 // Chip helper

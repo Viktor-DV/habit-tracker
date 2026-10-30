@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 /// Warning banner shown when notification permission is missing.
 ///
@@ -34,14 +35,14 @@ class PermissionBanner extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Уведомления отключены',
+                      context.l10n.permOffTitle,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: const Color(0xFFE65100),
                             fontWeight: FontWeight.w600,
                           ),
                     ),
                     Text(
-                      'Нажмите, чтобы разрешить напоминания',
+                      context.l10n.permOffSubtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: const Color(0xFFE65100),
                           ),

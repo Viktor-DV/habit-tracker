@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:habit_tracker/app/app_theme.dart';
 import 'package:habit_tracker/core/database/database_provider.dart';
-import 'package:habit_tracker/features/monetization/data/monetization_providers.dart';
-import 'package:habit_tracker/features/monetization/domain/premium_repository.dart';
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
 import 'package:habit_tracker/features/settings/data/settings_repository.dart';
 import 'package:habit_tracker/features/settings/domain/settings.dart';
+import 'package:habit_tracker/features/settings/domain/theme_mode.dart';
+import 'package:habit_tracker/features/settings/data/theme_mode_provider.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
+import 'package:habit_tracker/l10n/l10n_date.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -17,37 +18,36 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
-    final theme = Theme.of(context);
 
     // Any settings change (dayStart, morning, snooze, DND) → reschedule.
     ref.listen(settingsProvider, (_, next) {
       ref.read(notificationOrchestratorProvider).rebuild(next);
     });
 
-    final isPremium = ref.watch(isPremiumProvider);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
+      appBar: AppBar(title: Text(context.l10n.settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
-          if (!isPremium) const _BannerAdStub(),
+          _SectionHeader(context.l10n.appearanceSection),
+          const _ThemeModeTile(),
+          const Divider(),
 
           // 1. DND
-          _SectionHeader('Уведомления'),
+          _SectionHeader(context.l10n.notificationsSection),
           _DndTile(settings: settings, notifier: notifier),
           const Divider(),
 
           // 2. Время начала нового дня
-          _SectionHeader('День'),
+          _SectionHeader(context.l10n.daySection),
           _DayStartTile(settings: settings, notifier: notifier),
           const Divider(),
 
           // 3. Общее утреннее напоминание
           _SwitchTile(
-            title: 'Утреннее напоминание',
+            title: context.l10n.morningSummaryTitle,
             subtitle:
-                'Сводка привычек в начале нового дня (${_fmt(settings.dayStartHour, settings.dayStartMinute)})',
+                context.l10n.morningSummarySubtitle(formatTime(context, settings.dayStartHour, settings.dayStartMinute)),
             value: settings.morningSummaryEnabled,
             onChanged: (v) => notifier.setMorningSummary(v),
           ),
@@ -58,15 +58,57 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
 
           // 5. История
-          _SectionHeader('История'),
+          _SectionHeader(context.l10n.historySection),
           _HistorySection(settings: settings, notifier: notifier),
-          const Divider(),
-
-          // 6. Premium
-          _SectionHeader('Premium'),
-          _PremiumTile(theme: theme),
 
           const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Theme mode
+// ---------------------------------------------------------------------------
+
+class _ThemeModeTile extends ConsumerWidget {
+  const _ThemeModeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final setMode = ref.read(themeModeProvider.notifier).set;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.themeLabel, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 10),
+          SegmentedButton<ThemeModeOption>(
+            showSelectedIcon: false,
+            selected: {mode},
+            onSelectionChanged: (s) => setMode(s.first),
+            segments: [
+              ButtonSegment(
+                value: ThemeModeOption.light,
+                label: Text(context.l10n.themeLight),
+                icon: const Icon(Icons.light_mode_outlined),
+              ),
+              ButtonSegment(
+                value: ThemeModeOption.system,
+                label: Text(context.l10n.themeSystem),
+                icon: const Icon(Icons.settings_brightness_outlined),
+              ),
+              ButtonSegment(
+                value: ThemeModeOption.dark,
+                label: Text(context.l10n.themeDark),
+                icon: const Icon(Icons.dark_mode_outlined),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -88,8 +130,8 @@ class _DndTile extends ConsumerWidget {
     return Column(
       children: [
         _SwitchTile(
-          title: 'Заглушить все уведомления',
-          subtitle: isActive ? _dndLabel(settings) : 'Уведомления активны',
+          title: context.l10n.dndTitle,
+          subtitle: isActive ? _dndLabel(context, settings) : context.l10n.dndSubtitleOff,
           value: isActive,
           onChanged: (v) => v ? notifier.setDndForever() : notifier.setDndOff(),
         ),
@@ -99,12 +141,12 @@ class _DndTile extends ConsumerWidget {
             child: Row(
               children: [
                 _OutlineButton(
-                  label: 'Заглушить на период',
+                  label: context.l10n.dndMutePeriod,
                   onTap: () => _pickDndUntil(context),
                 ),
                 const SizedBox(width: 12),
                 _OutlineButton(
-                  label: 'Отключить',
+                  label: context.l10n.dndDisable,
                   onTap: notifier.setDndOff,
                 ),
               ],
@@ -114,11 +156,11 @@ class _DndTile extends ConsumerWidget {
     );
   }
 
-  String _dndLabel(Settings s) => switch (s.dndMode) {
-        DndMode.forever => 'Заглушено навсегда',
+  String _dndLabel(BuildContext context, Settings s) => switch (s.dndMode) {
+        DndMode.forever => context.l10n.dndForever,
         DndMode.until => s.dndUntil != null
-            ? 'Заглушено до ${_fmtDate(s.dndUntil!)}'
-            : 'Заглушено',
+            ? context.l10n.dndUntil(formatDateTime(context, s.dndUntil!))
+            : context.l10n.dndMuted,
         DndMode.off => '',
       };
 
@@ -139,9 +181,6 @@ class _DndTile extends ConsumerWidget {
     final until = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     notifier.setDndUntil(until);
   }
-
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')} ${_fmt(d.hour, d.minute)}';
 }
 
 // ---------------------------------------------------------------------------
@@ -156,9 +195,9 @@ class _DayStartTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: const Text('Начало нового дня'),
+      title: Text(context.l10n.dayStartTitle),
       subtitle: Text(
-        _fmt(settings.dayStartHour, settings.dayStartMinute),
+        formatTime(context, settings.dayStartHour, settings.dayStartMinute),
         style: Theme.of(context)
             .textTheme
             .bodySmall
@@ -174,7 +213,7 @@ class _DayStartTile extends StatelessWidget {
       context: context,
       initialTime:
           TimeOfDay(hour: settings.dayStartHour, minute: settings.dayStartMinute),
-      helpText: 'Начало нового дня',
+      helpText: context.l10n.dayStartPickerHint,
     );
     if (picked == null) return;
     notifier.setDayStartTime(picked.hour, picked.minute);
@@ -193,9 +232,9 @@ class _SnoozeIntervalTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: const Text('Интервал «Напомнить позже»'),
+      title: Text(context.l10n.snoozeTitle),
       subtitle: Text(
-        '${settings.snoozeIntervalMinutes} мин',
+        context.l10n.snoozeUnit(settings.snoozeIntervalMinutes),
         style: Theme.of(context)
             .textTheme
             .bodySmall
@@ -212,7 +251,7 @@ class _SnoozeIntervalTile extends StatelessWidget {
     final result = await showDialog<int>(
       context: context,
       builder: (_) => _NumberInputDialog(
-        title: 'Интервал (мин)',
+        title: context.l10n.intervalDialogTitle,
         controller: ctrl,
         min: 1,
         max: 120,
@@ -241,8 +280,8 @@ class _HistorySection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SwitchTile(
-          title: 'Хранить историю',
-          subtitle: 'Без истории долгосрочная статистика ограничена',
+          title: context.l10n.historyKeepTitle,
+          subtitle: context.l10n.historyKeepSubtitle,
           value: settings.historyEnabled,
           onChanged: (v) => notifier.setHistoryEnabled(v),
         ),
@@ -250,7 +289,7 @@ class _HistorySection extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: countAsync.when(
             data: (count) => Text(
-              'Записей: $count  ·  Авточистка при >50 МБ',
+              context.l10n.historyCount(count),
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: AppTheme.textSecondary),
             ),
@@ -265,11 +304,11 @@ class _HistorySection extends ConsumerWidget {
             runSpacing: 8,
             children: [
               _OutlineButton(
-                label: 'Очистить всё',
+                label: context.l10n.historyClearAll,
                 onTap: () => _confirmClearAll(context, repo, ref),
               ),
               _OutlineButton(
-                label: 'Очистить последние N',
+                label: context.l10n.historyClearN,
                 onTap: () => _pickClearN(context, repo, ref),
               ),
             ],
@@ -287,16 +326,16 @@ class _HistorySection extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Очистить всю историю?'),
-        content: const Text('Это действие нельзя отменить.'),
+        title: Text(context.l10n.clearAllTitle),
+        content: Text(context.l10n.clearAllBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Очистить'),
+            child: Text(context.l10n.clearAllConfirm),
           ),
         ],
       ),
@@ -318,8 +357,8 @@ class _HistorySection extends ConsumerWidget {
     final result = await showDialog<int>(
       context: context,
       builder: (_) => _NumberInputDialog(
-        title: 'Удалить последних N записей',
-        subtitle: 'Всего записей: $total',
+        title: context.l10n.clearNTitle,
+        subtitle: context.l10n.clearNSubtitle(total),
         controller: ctrl,
         min: 1,
         max: total > 0 ? total : 9999,
@@ -336,78 +375,6 @@ final _entryCountProvider = FutureProvider.autoDispose<int>((ref) {
   final repo = ref.watch(habitsRepositoryProvider);
   return repo.getTotalEntriesCount();
 });
-
-// ---------------------------------------------------------------------------
-// Premium tile
-// ---------------------------------------------------------------------------
-
-class _PremiumTile extends ConsumerWidget {
-  const _PremiumTile({required this.theme});
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(premiumProvider);
-    final isPremium = status == PremiumStatus.premium;
-
-    if (isPremium) {
-      return ListTile(
-        leading: const Icon(Icons.star_rounded, color: Color(0xFF2E7D32)),
-        title: const Text('Premium активен'),
-        subtitle: const Text('Реклама отключена · Безлимит привычек'),
-      );
-    }
-
-    return ListTile(
-      title: const Text('Получить Premium'),
-      subtitle: const Text('Безлимит привычек · Без рекламы · Разово'),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
-          borderRadius: AppTheme.chipRadius,
-        ),
-        child: Text(
-          'Купить — 100 ₽',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      onTap: () => context.push('/paywall'),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Banner ad stub (settings screen)
-// ---------------------------------------------------------------------------
-
-class _BannerAdStub extends StatelessWidget {
-  const _BannerAdStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-      ),
-      child: Center(
-        child: Text(
-          'Реклама Яндекс',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: const Color(0xFFAAAAAA),
-              ),
-        ),
-      ),
-    );
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -525,14 +492,14 @@ class _NumberInputDialog extends StatelessWidget {
             autofocus: true,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(hintText: 'Введите число'),
+            decoration: InputDecoration(hintText: context.l10n.numberHint),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text(context.l10n.cancel),
         ),
         TextButton(
           onPressed: () {
@@ -541,12 +508,9 @@ class _NumberInputDialog extends StatelessWidget {
               Navigator.pop(context, v);
             }
           },
-          child: const Text('OK'),
+          child: Text(context.l10n.ok),
         ),
       ],
     );
   }
 }
-
-String _fmt(int h, int m) =>
-    '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';

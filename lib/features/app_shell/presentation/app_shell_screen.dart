@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:habit_tracker/core/database/database_provider.dart';
-import 'package:habit_tracker/features/monetization/data/monetization_providers.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 
 class AppShellScreen extends ConsumerWidget {
   const AppShellScreen({
@@ -13,10 +12,10 @@ class AppShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   static const _tabs = [
-    (icon: Icons.calendar_today_outlined, label: 'Главная', route: '/'),
-    (icon: Icons.checklist_outlined, label: 'Привычки', route: '/habits'),
-    (icon: Icons.bar_chart_outlined, label: 'Статистика', route: '/statistics'),
-    (icon: Icons.settings_outlined, label: 'Настройки', route: '/settings'),
+    (icon: Icons.calendar_today_outlined, route: '/'),
+    (icon: Icons.checklist_outlined, route: '/habits'),
+    (icon: Icons.bar_chart_outlined, route: '/statistics'),
+    (icon: Icons.settings_outlined, route: '/settings'),
   ];
 
   @override
@@ -30,13 +29,15 @@ class AppShellScreen extends ConsumerWidget {
           initialLocation: i == navigationShell.currentIndex,
         ),
       ),
-      floatingActionButton: _CreateFab(navigationShell: navigationShell),
+      floatingActionButton: navigationShell.currentIndex == 3
+          ? null
+          : _CreateFab(navigationShell: navigationShell),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
-/// FAB that enforces the Free-tier 5-habit limit.
+/// FAB that opens the habit creation flow.
 class _CreateFab extends ConsumerWidget {
   const _CreateFab({required this.navigationShell});
   final StatefulNavigationShell navigationShell;
@@ -45,23 +46,10 @@ class _CreateFab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return FloatingActionButton(
       heroTag: 'create_habit_fab',
-      onPressed: () => _onCreate(context, ref),
-      tooltip: 'Создать привычку',
+      onPressed: () => context.push('/habits/create'),
+      tooltip: context.l10n.fabCreateHabit,
       child: const Icon(Icons.add, size: 28),
     );
-  }
-
-  Future<void> _onCreate(BuildContext context, WidgetRef ref) async {
-    final isPremium = ref.read(isPremiumProvider);
-    if (!isPremium) {
-      final repo = ref.read(habitsRepositoryProvider);
-      final all = await repo.getAll();
-      if (all.length >= kFreeHabitLimit) {
-        if (context.mounted) context.push('/paywall');
-        return;
-      }
-    }
-    if (context.mounted) context.push('/habits/create');
   }
 }
 
@@ -80,14 +68,18 @@ class _BottomNav extends StatelessWidget {
         NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: onTap,
-          destinations: AppShellScreen._tabs
-              .map(
-                (t) => NavigationDestination(
-                  icon: Icon(t.icon),
-                  label: t.label,
-                ),
-              )
-              .toList(),
+          destinations: [
+            for (var i = 0; i < AppShellScreen._tabs.length; i++)
+              NavigationDestination(
+                icon: Icon(AppShellScreen._tabs[i].icon),
+                label: [
+                  context.l10n.navHome,
+                  context.l10n.navHabits,
+                  context.l10n.navStats,
+                  context.l10n.navSettings,
+                ][i],
+              ),
+          ],
         ),
       ],
     );

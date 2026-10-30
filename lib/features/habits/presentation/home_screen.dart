@@ -12,7 +12,11 @@ import 'package:habit_tracker/features/habits/presentation/entry_saver.dart'
     as es;
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
 import 'package:habit_tracker/features/notifications/presentation/permission_banner.dart';
+import 'package:habit_tracker/features/monetization/domain/ads_repository.dart';
+import 'package:habit_tracker/features/monetization/presentation/ad_widgets.dart';
 import 'package:habit_tracker/features/settings/data/settings_repository.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
+import 'package:habit_tracker/l10n/l10n_date.dart';
 import 'package:habit_tracker/shared/widgets/adaptive_content.dart';
 import 'package:habit_tracker/shared/widgets/empty_state_view.dart';
 import 'package:habit_tracker/shared/widgets/error_view.dart';
@@ -51,6 +55,7 @@ class _DayItem {
 /// Habits expected on the [selectedDate], with their entries.
 final dayHabitsProvider =
     FutureProvider.autoDispose<List<_DayItem>>((ref) async {
+  ref.watch(habitsRevisionProvider);
   final date = ref.watch(selectedDateProvider);
   final repo = ref.watch(habitsRepositoryProvider);
   final all = await repo.getAll();
@@ -78,6 +83,7 @@ class _MonthData {
 
 final _monthDataProvider = FutureProvider.autoDispose
     .family<_MonthData, DateTime>((ref, firstOfMonth) async {
+  ref.watch(habitsRevisionProvider);
   final repo = ref.watch(habitsRepositoryProvider);
   final today = ref.watch(todayProvider);
   final habits = await repo.getAll();
@@ -171,11 +177,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Главная'),
+        title: Text(context.l10n.homeTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.today_outlined),
-            tooltip: 'Сегодня',
+            tooltip: context.l10n.today,
             onPressed: () {
               setState(() => _visibleMonth = DateTime(today.year, today.month));
               ref.read(selectedDateProvider.notifier).set(today);
@@ -185,6 +191,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: CustomScrollView(
         slivers: [
+          // Top banner ad
+          SliverToBoxAdapter(
+            child: YandexBannerAd(unitId: kBannerUnit.unitId),
+          ),
           const SliverToBoxAdapter(child: PermissionBanner()),
           // ── Calendar ──────────────────────────────────────────────────────
           SliverToBoxAdapter(
@@ -216,12 +226,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _formatDate(selectedDate, today),
+                      _formatDate(context, selectedDate, today),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   _FilterChip(
-                    label: 'Все активные',
+                    label: context.l10n.filterAllActive,
                     selected: _showAllActive,
                     onTap: () =>
                         setState(() => _showAllActive = !_showAllActive),
@@ -242,17 +252,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  String _formatDate(DateTime d, DateTime today) {
-    if (_ds(d) == _ds(today)) return 'Сегодня';
+  String _formatDate(BuildContext context, DateTime d, DateTime today) {
+    if (_ds(d) == _ds(today)) return context.l10n.today;
     if (_ds(d) == _ds(today.subtract(const Duration(days: 1)))) {
-      return 'Вчера';
+      return context.l10n.yesterday;
     }
-    if (_ds(d) == _ds(today.add(const Duration(days: 1)))) return 'Завтра';
-    const months = [
-      'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
-    ];
-    return '${d.day} ${months[d.month - 1]}';
+    if (_ds(d) == _ds(today.add(const Duration(days: 1)))) {
+      return context.l10n.tomorrow;
+    }
+    return '${d.day} ${monthShort(context, d)}';
   }
 }
 
@@ -279,16 +287,13 @@ class _MonthCalendar extends StatelessWidget {
   final VoidCallback onNext;
   final ValueChanged<DateTime> onSelectDate;
 
-  static const _weekLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  static const _monthNames = [
-    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cells = _buildCells();
+    final weekLabels = [
+      for (var i = 0; i < 7; i++) weekdayShort(context, i),
+    ];
 
     return Container(
       color: AppTheme.surfaceColor,
@@ -305,7 +310,7 @@ class _MonthCalendar extends StatelessWidget {
               ),
               Expanded(
                 child: Text(
-                  '${_monthNames[visibleMonth.month - 1]} ${visibleMonth.year}',
+                  '${monthLong(context, visibleMonth)} ${visibleMonth.year}',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleSmall,
                 ),
@@ -319,7 +324,7 @@ class _MonthCalendar extends StatelessWidget {
           ),
           // Week day labels
           Row(
-            children: _weekLabels
+            children: weekLabels
                 .map(
                   (l) => Expanded(
                     child: Center(
@@ -483,14 +488,14 @@ class _DayHabitsList extends ConsumerWidget {
       error: (e, _) => SliverErrorView(error: e),
       data: (items) {
         if (items.isEmpty) {
-          return const SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyStateView(
-              emoji: '🌿',
-              title: 'Привычек нет',
-              subtitle: 'Нажмите + чтобы создать первую привычку',
-            ),
-          );
+            return SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyStateView(
+                emoji: '🌿',
+                title: context.l10n.emptyNoHabitsTitle,
+                subtitle: context.l10n.emptyNoHabitsSubtitle,
+              ),
+            );
         }
         return SliverAdaptiveContent(
           sliver: SliverPadding(
@@ -527,12 +532,12 @@ class _AllActiveHabitsList extends ConsumerWidget {
       error: (e, _) => SliverErrorView(error: e),
       data: (habits) {
         if (habits.isEmpty) {
-          return const SliverFillRemaining(
+          return SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyStateView(
               emoji: '🌿',
-              title: 'Нет активных привычек',
-              subtitle: 'Создайте первую привычку, нажав +',
+              title: context.l10n.emptyNoActiveTitle,
+              subtitle: context.l10n.emptyNoActiveSubtitle,
             ),
           );
         }
@@ -552,6 +557,7 @@ class _AllActiveHabitsList extends ConsumerWidget {
 }
 
 final _allActiveProvider = FutureProvider.autoDispose<List<Habit>>((ref) async {
+  ref.watch(habitsRevisionProvider);
   final repo = ref.watch(habitsRepositoryProvider);
   final all = await repo.getAll();
   return all.where((h) => h.isActive).toList()
@@ -575,9 +581,10 @@ Future<void> _saveEntry(
     ref, habit, existing, date,
     status: status,
     value: value,
-    onInvalidate: () {
-      ref.invalidate(dayHabitsProvider);
-      ref.invalidate(_monthDataProvider(DateTime(date.year, date.month)));
+      onInvalidate: () {
+        ref.read(habitsRevisionProvider.notifier).bump();
+        ref.invalidate(dayHabitsProvider);
+        ref.invalidate(_monthDataProvider(DateTime(date.year, date.month)));
       // Reschedule so completed habits stop reminding today.
       ref
           .read(notificationOrchestratorProvider)
@@ -740,12 +747,12 @@ class _YesNoButton extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.remove_circle_outline),
-              title: const Text('Пропустить'),
+              title: Text(context.l10n.resetSkip),
               onTap: () => Navigator.pop(context, 'skip'),
             ),
             ListTile(
               leading: const Icon(Icons.undo),
-              title: const Text('Сбросить'),
+              title: Text(context.l10n.resetReset),
               onTap: () => Navigator.pop(context, 'reset'),
             ),
           ],
@@ -757,6 +764,7 @@ class _YesNoButton extends ConsumerWidget {
     } else if (result == 'reset') {
       final repo = ref.read(habitsRepositoryProvider);
       if (entry != null && entry!.id != 0) await repo.deleteEntry(entry!.id);
+      ref.read(habitsRevisionProvider.notifier).bump();
       ref.invalidate(dayHabitsProvider);
       final date = ref.read(selectedDateProvider);
       ref.invalidate(_monthDataProvider(DateTime(date.year, date.month)));
@@ -834,21 +842,21 @@ class _QuantityRowState extends ConsumerState<_QuantityRow> {
           autofocus: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            hintText: 'Значение',
+            hintText: context.l10n.quantityValueHint,
             suffixText: unit,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () {
               final v = double.tryParse(ctrl.text.replaceAll(',', '.'));
               if (v != null) Navigator.pop(context, v);
             },
-            child: const Text('OK'),
+            child: Text(context.l10n.ok),
           ),
         ],
       ),
@@ -1007,7 +1015,7 @@ class _NegativeRow extends ConsumerWidget {
     return Row(
       children: [
         _NegBtn(
-          label: 'Успех',
+          label: context.l10n.negSuccess,
           icon: Icons.check,
           activeColor: const Color(0xFF43C59E),
           isActive: currentStatus == EntryStatus.success,
@@ -1016,7 +1024,7 @@ class _NegativeRow extends ConsumerWidget {
         ),
         const SizedBox(width: 8),
         _NegBtn(
-          label: 'Срыв',
+          label: context.l10n.negFailure,
           icon: Icons.close,
           activeColor: const Color(0xFFF44336),
           isActive: currentStatus == EntryStatus.failure,
@@ -1025,7 +1033,7 @@ class _NegativeRow extends ConsumerWidget {
         ),
         const SizedBox(width: 8),
         _NegBtn(
-          label: 'Пропуск',
+          label: context.l10n.negSkip,
           icon: Icons.remove,
           activeColor: AppTheme.textSecondary,
           isActive: currentStatus == EntryStatus.skipped,

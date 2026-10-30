@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -100,21 +101,22 @@ class NotificationService {
     bool withActions = false,
   }) async {
     await _ensureTimezone();
+    final l10n = await loadL10n();
     final scheduled = tz.TZDateTime.from(when, tz.local);
     if (scheduled.isBefore(tz.TZDateTime.now(tz.local))) return;
 
     final android = AndroidNotificationDetails(
       isMorning ? _kMorningChannel : _kHabitChannel,
-      isMorning ? 'Утренняя сводка' : 'Напоминания о привычках',
+      isMorning ? l10n.channelMorning : l10n.channelHabits,
       channelDescription:
-          isMorning ? 'Сводка привычек на день' : 'Напоминания по привычкам',
+          isMorning ? l10n.channelMorningDesc : l10n.channelHabitsDesc,
       importance: Importance.max,
       priority: Priority.high,
       actions: withActions
-          ? const [
-              AndroidNotificationAction(kActionDone, 'Выполнено',
+          ? [
+              AndroidNotificationAction(kActionDone, l10n.actionDone,
                   showsUserInterface: false, cancelNotification: true),
-              AndroidNotificationAction(kActionSnooze, 'Напомнить позже',
+              AndroidNotificationAction(kActionSnooze, l10n.actionSnooze,
                   showsUserInterface: false, cancelNotification: true),
             ]
           : null,

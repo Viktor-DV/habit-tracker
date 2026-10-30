@@ -14,6 +14,8 @@ import 'package:habit_tracker/features/habits/presentation/entry_saver.dart'
     as es;
 import 'package:habit_tracker/features/notifications/data/notification_providers.dart';
 import 'package:habit_tracker/features/settings/data/settings_repository.dart';
+import 'package:habit_tracker/l10n/l10n.dart';
+import 'package:habit_tracker/l10n/l10n_date.dart';
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -123,6 +125,7 @@ class _WeekBar {
 }
 
 List<_WeekBar> _buildWeekBars(
+  BuildContext context,
   Habit habit,
   List<HabitEntry> entries,
   DateTime today,
@@ -149,7 +152,7 @@ List<_WeekBar> _buildWeekBars(
         .where((d) => doneByDate[_ds(d)] == true)
         .length;
 
-    final label = w == 0 ? 'Эта' : '${weekStart.day}.${weekStart.month}';
+    final label = w == 0 ? context.l10n.weekThis : '${weekStart.day}.${weekStart.month}';
     bars.add(_WeekBar(label, done, expected));
   }
   return bars;
@@ -188,7 +191,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         data: (entries) {
           final today = DateTime.now();
           final metrics = _computeMetrics(_habit, entries, today);
-          final weekBars = _buildWeekBars(_habit, entries, today);
+          final weekBars = _buildWeekBars(context, _habit, entries, today);
           return CustomScrollView(
             slivers: [
               _DetailAppBar(
@@ -241,6 +244,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final updated = _habit.copyWith(isActive: !_habit.isActive);
     await repo.update(updated);
     setState(() => _habit = updated);
+    ref.read(habitsRevisionProvider.notifier).bump();
     await _rebuildNotifications();
   }
 
@@ -252,17 +256,17 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Удалить привычку?'),
-        content: const Text('Все записи тоже будут удалены.'),
+        title: Text(context.l10n.deleteTitle),
+        content: Text(context.l10n.deleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить',
-                style: TextStyle(color: Color(0xFFF44336))),
+            child: Text(context.l10n.deleteConfirm,
+                style: const TextStyle(color: Color(0xFFF44336))),
           ),
         ],
       ),
@@ -271,6 +275,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final repo = ref.read(habitsRepositoryProvider);
     await repo.deleteAllEntries(_habit.id);
     await repo.delete(_habit.id);
+    ref.read(habitsRevisionProvider.notifier).bump();
     await _rebuildNotifications();
     if (mounted) context.pop();
   }
@@ -303,7 +308,7 @@ class _DetailAppBar extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.edit_outlined),
           onPressed: onEdit,
-          tooltip: 'Редактировать',
+          tooltip: context.l10n.editTooltip,
         ),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
@@ -314,12 +319,34 @@ class _DetailAppBar extends StatelessWidget {
           itemBuilder: (_) => [
             PopupMenuItem(
               value: 'toggle',
-              child: Text(habit.isActive ? 'Деактивировать' : 'Активировать'),
+              child: Text(habit.isActive
+                  ? context.l10n.toggleDeactivate
+                  : context.l10n.toggleActivate),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'delete',
-              child: Text('Удалить',
-                  style: TextStyle(color: Color(0xFFF44336))),
+              child: Text(context.l10n.deleteConfirm,
+                  style: const TextStyle(color: Color(0xFFF44336))),
+            ),
+          ],
+        ),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (v) {
+            if (v == 'toggle') onToggleActive();
+            if (v == 'delete') onDelete();
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'toggle',
+              child: Text(habit.isActive
+                  ? context.l10n.toggleDeactivate
+                  : context.l10n.toggleActivate),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Text(context.l10n.deleteConfirm,
+                  style: const TextStyle(color: Color(0xFFF44336))),
             ),
           ],
         ),
@@ -389,7 +416,9 @@ class _DetailAppBar extends StatelessWidget {
                         Row(
                           children: [
                             _Badge(
-                              habit.isActive ? 'Активна' : 'Неактивна',
+                              habit.isActive
+                                  ? context.l10n.badgeActive
+                                  : context.l10n.badgeInactive,
                               habit.isActive
                                   ? Colors.white
                                   : Colors.white.withValues(alpha: 0.5),
@@ -400,8 +429,8 @@ class _DetailAppBar extends StatelessWidget {
                             const SizedBox(width: 8),
                             _Badge(
                               habit.habitKind == HabitKind.positive
-                                  ? 'Позитивная'
-                                  : 'Негативная',
+                                  ? context.l10n.badgePositive
+                                  : context.l10n.badgeNegative,
                               Colors.white.withValues(alpha: 0.9),
                               Colors.white.withValues(alpha: 0.15),
                             ),
@@ -459,16 +488,17 @@ class _InfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <(String, String)>[
-      ('Механика', _completionLabel(habit.completionType)),
+      (context.l10n.infoMechanics, _completionLabel(context, habit.completionType)),
       if (habit.targetValue != null)
-        ('Цель', '${_fmtV(habit.targetValue!)} ${habit.targetUnit ?? ''}'),
-      ('Расписание', _scheduleLabel(habit)),
-      ('Начало', _fmtDate(habit.repeatStartDate)),
-      ('Создана', _fmtDate(habit.createdAt)),
+        (context.l10n.infoGoal,
+            '${_fmtV(habit.targetValue!)} ${habit.targetUnit ?? ''}'),
+      (context.l10n.infoSchedule, _scheduleLabel(context, habit)),
+      (context.l10n.infoStart, formatDate(context, habit.repeatStartDate)),
+      (context.l10n.infoCreated, formatDate(context, habit.createdAt)),
     ];
 
     return _Card(
-      title: 'Информация',
+      title: context.l10n.infoTitle,
       child: Column(
         children: rows
             .map(
@@ -500,30 +530,30 @@ class _InfoSection extends StatelessWidget {
     );
   }
 
-  String _completionLabel(CompletionType ct) => switch (ct) {
-        CompletionType.yesNo => 'Да / Нет',
-        CompletionType.quantity => 'Количество',
-        CompletionType.time => 'Время',
-        CompletionType.avoidance => 'Избегание',
+  String _completionLabel(BuildContext context, CompletionType ct) => switch (ct) {
+        CompletionType.yesNo => context.l10n.completionYesNo,
+        CompletionType.quantity => context.l10n.completionQuantity,
+        CompletionType.time => context.l10n.completionTime,
+        CompletionType.avoidance => context.l10n.completionAvoidance,
       };
 
-  String _scheduleLabel(Habit h) {
+  String _scheduleLabel(BuildContext context, Habit h) {
     switch (h.repeatType) {
       case RepeatType.everyDay:
-        return 'Каждый день';
+        return context.l10n.scheduleEveryDay;
       case RepeatType.selectedWeekdays:
-        const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        final days = h.repeatWeekdays.map((d) => names[d - 1]).join(', ');
-        return days.isEmpty ? 'По дням недели' : days;
+        final days = h.repeatWeekdays
+            .map((d) => weekdayShort(context, d - 1))
+            .join(', ');
+        return days.isEmpty ? context.l10n.scheduleSelectedWeekdays : days;
       case RepeatType.everyNDays:
-        return 'Каждые ${h.repeatInterval ?? 2} дн.';
+        return context.l10n.scheduleEveryNDays(h.repeatInterval ?? 2);
       case RepeatType.nTimesPerNDays:
-        return '${h.repeatGoalCount ?? 3} раз за ${h.repeatPeriodDays ?? 7} дн.';
+        return context.l10n
+            .scheduleNTimesPerNDays(h.repeatGoalCount ?? 3, h.repeatPeriodDays ?? 7);
     }
   }
 
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
   String _fmtV(double v) =>
       v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 }
@@ -539,20 +569,20 @@ class _MetricsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Card(
-      title: 'Статистика',
+      title: context.l10n.metricsTitle,
       child: Row(
         children: [
-          _MetricTile('🔥', '${metrics.currentStreak}', 'Серия'),
-          _MetricTile('🏆', '${metrics.bestStreak}', 'Рекорд'),
+          _MetricTile('🔥', '${metrics.currentStreak}', context.l10n.metricStreak),
+          _MetricTile('🏆', '${metrics.bestStreak}', context.l10n.metricBest),
           _MetricTile(
             '✅',
             '${metrics.totalDone}',
-            'Выполнено',
+            context.l10n.metricDone,
           ),
           _MetricTile(
             '📊',
             '${(metrics.completionRate30 * 100).round()}%',
-            '30 дней',
+            context.l10n.metric30days,
           ),
         ],
       ),
@@ -604,7 +634,7 @@ class _WeeklyChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Card(
-      title: 'По неделям',
+      title: context.l10n.chartWeekly,
       child: SizedBox(
         height: 80,
         child: Row(
@@ -681,7 +711,7 @@ class _MiniCalendarSection extends StatelessWidget {
     };
 
     return _Card(
-      title: 'История (последние 3 месяца)',
+      title: context.l10n.historyTitle,
       child: Column(
         children: List.generate(3, (i) {
           final month = DateTime(today.year, today.month - (2 - i));
@@ -709,11 +739,6 @@ class _MiniMonthGrid extends StatelessWidget {
   final Map<String, bool> doneByDate;
   final DateTime today;
 
-  static const _monthNames = [
-    'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
-    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final first = DateTime(month.year, month.month, 1);
@@ -727,7 +752,7 @@ class _MiniMonthGrid extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 6, top: 8),
           child: Text(
-            '${_monthNames[month.month - 1]} ${month.year}',
+            '${monthShort(context, month)} ${month.year}',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppTheme.textSecondary,
                 ),
@@ -839,17 +864,17 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
     final save = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Сохранить время?'),
+        title: Text(context.l10n.timerSaveQuestion),
         content:
-            Text('Прошло ${_fmtDuration(elapsed)}. Сохранить как выполнение?'),
+            Text(context.l10n.timerSaveBody(_fmtDuration(elapsed))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Нет'),
+            child: Text(context.l10n.timerNo),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Сохранить'),
+            child: Text(context.l10n.timerSave),
           ),
         ],
       ),
@@ -871,7 +896,7 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
       if (mounted) {
         ref.invalidate(_habitEntriesProvider(widget.habit.id));
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Сохранено: $minutes мин')),
+          SnackBar(content: Text(context.l10n.timerSaved(minutes))),
         );
       }
       _stopwatch.reset();
@@ -888,7 +913,7 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
         : 0.0;
 
     return _Card(
-      title: 'Таймер',
+      title: context.l10n.timerTitle,
       child: Column(
         children: [
           // Circular-ish progress ring using LinearProgressIndicator
@@ -918,7 +943,7 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
               ),
               if (target != null) ...[
                 Text(
-                  ' / ${_fmtV(target)} ${widget.habit.targetUnit ?? 'мин'}',
+                  ' / ${_fmtV(target)} ${widget.habit.targetUnit ?? context.l10n.unitMinutes}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppTheme.textSecondary,
                       ),
@@ -933,7 +958,7 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
               ElevatedButton.icon(
                 onPressed: _toggle,
                 icon: Icon(_running ? Icons.stop : Icons.play_arrow),
-                label: Text(_running ? 'Стоп' : 'Старт'),
+                label: Text(_running ? context.l10n.timerStop : context.l10n.timerStart),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       _running ? const Color(0xFFF44336) : widget.habit.color,
@@ -945,7 +970,7 @@ class _TimerSectionState extends ConsumerState<_TimerSection> {
                   onPressed: () {
                     setState(() => _stopwatch.reset());
                   },
-                  child: const Text('Сброс'),
+                  child: Text(context.l10n.timerReset),
                 ),
               ],
             ],
